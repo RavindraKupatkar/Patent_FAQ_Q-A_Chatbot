@@ -1,0 +1,52 @@
+[
+  {
+    "role": "user",
+    "content": "What are the BIS standards?",
+    "timestamp": "2025-06-12T17:22:44.622750"
+  },
+  {
+    "role": "assistant",
+    "content": "I don't have information about this. Here are some related questions:\n\n1. What is the validity of the test report as per BIS Rules?\n2. Where should the Standard Mark be placed on the product or packaging?\n3. What should the label display?\n4. Which of the BIS recognized labs can be approached for testing of products?\n\nSources URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf, D:\\BuzzBoard_Assessment\\BB_assessment\\data\\Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf\n\nSource URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf\n\nSource URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf\n\nSource URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf",
+    "timestamp": "2025-06-12T17:22:44.623751"
+  },
+  {
+    "role": "user",
+    "content": "What is the validity of the test report as per BIS Rules?",
+    "timestamp": "2025-06-12T17:23:28.623966"
+  },
+  {
+    "role": "assistant",
+    "content": "As per BIS Rules, the test report shall not be older than ninety days as on the date of submission of application online as well as physical application for registration.\n\nSources URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf, D:\\BuzzBoard_Assessment\\BB_assessment\\data\\Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf\n\nSource URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf\n\nSource URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf",
+    "timestamp": "2025-06-12T17:23:28.624966"
+  },
+  {
+    "role": "user",
+    "content": "How long does it take to get a patent granted?",
+    "timestamp": "2025-06-12T17:28:57.583650"
+  },
+  {
+    "role": "assistant",
+    "content": "The time it takes to get a patent granted can vary. After examination, the Patent office issues an examination report to the applicant which is generally known as First Examination Report (FER). The applicant is required to comply with the requirements within a period of 6 months from the date of FER which can be extended by 3 months. If the application is found to be in order for grant, the patent is granted, provided there is no pre-grant opposition filed or pending. \n\nIn the case of international patent applications, in most cases, it takes up to an additional 18 months from the time you file your international patent application (or usually 30/31 months from the filing date of the initial patent application of which you claim priority) before starting of national phase procedures with individual patent Offices and to fulfil the national requirements.\n\nSources URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf, D:\\BuzzBoard_Assessment\\BB_assessment\\data\\Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf\n\nSource URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf\n\nSource URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\FINAL_FAQs_June_2018.pdf\n\nSource URLs: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf",
+    "timestamp": "2025-06-12T17:28:57.585642"
+  },
+  {
+    "role": "user",
+    "content": "How long does it take to get a patent granted?",
+    "timestamp": "2025-06-12T17:32:20.718893"
+  },
+  {
+    "role": "assistant",
+    "content": "The time it takes to get a patent granted can vary. After examination, the Patent office issues an examination report to the applicant which is generally known as First Examination Report (FER). The applicant is required to comply with the requirements within a period of 6 months from the date of FER which can be extended by 3 months. If the application is found to be in order for grant, the patent is granted, provided there is no pre-grant opposition filed or pending. \n\nIn the case of international patent applications, in most cases, it takes up to an additional 18 months from the time you file your international patent application (or usually 30/31 months from the filing date of the initial patent application of which you claim priority) before starting of national phase procedures with individual patent Offices and to fulfil the national requirements.\n\nSource: Office of CGP DTM, INDIA | www.ipindia.gov.in Page 20 Frequently Asked Questions 2020\n\nSource: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf",
+    "timestamp": "2025-06-12T17:32:20.720895"
+  },
+  {
+    "role": "user",
+    "content": "What is the process of applying for patent in india?",
+    "timestamp": "2025-06-12T17:33:12.883870"
+  },
+  {
+    "role": "assistant",
+    "content": "The process of applying for a patent in India involves several steps:\n\n1. Filing: File an application with a national patent Office or directly with the International Bureau (IB) of WIPO, complying with the PCT formality requirements and fees. In India, PCT applications are filed at appropriate patent offices decided on the basis of territorial limits.\n\n2. Examination: After the application is filed, the Patent office examines it and issues an examination report to the applicant, known as the First Examination Report (FER).\n\n3. Compliance: The applicant is required to comply with the requirements within a period of 6 months from the date of FER, which can be extended by 3 months.\n\n4. Grant: If the application is found to be in order for grant, the patent is granted, provided there is no pre-grant opposition filed or pending. A letter patent is issued to the applicant.\n\nIn the case of international patent applications, the process includes an additional step:\n\n5. National Phase: After the end of the international PCT procedure, usually at 30/31 months from the earliest filing date of your initial application, from which you claim priority, you start to pursue the grant of your patents directly before the national (or regional) patent Offices of the countries in which you want to obtain them.\n\nSource: Office of CGP DTM, INDIA | www.ipindia.gov.in Page 19 Frequently Asked Questions 2020\n\nSource: D:\\BuzzBoard_Assessment\\BB_assessment\\data\\Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf",
+    "timestamp": "2025-06-12T17:33:12.885865"
+  }
+]
