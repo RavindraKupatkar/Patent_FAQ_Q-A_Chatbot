@@ -1,12 +1,19 @@
 import streamlit as st
-from utils.document_loader import load_pdf
+import os
+from dotenv import load_dotenv
 from utils.db_manager import VectorDBManager
 from services.response_generator import ResponseGenerator
-from services.retrieval import SuggestionEngine
+from services.suggestion_engine import SuggestionEngine
 from utils.chat_history import ChatHistory
-import os
 
-# Set page config
+# Load environment variables
+load_dotenv()
+
+# Initialize session state
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = ChatHistory()
+
+# Page config
 st.set_page_config(
     page_title="Patent & BIS FAQ Assistant",
     page_icon="🤖",
@@ -16,11 +23,9 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
     <style>
-    .main {
-        background-color: #f5f5f5;
-    }
-    .stTextInput>div>div>input {
-        background-color: white;
+    .stApp {
+        max-width: 1200px;
+        margin: 0 auto;
     }
     .chat-message {
         padding: 1.5rem;
@@ -31,137 +36,151 @@ st.markdown("""
     }
     .chat-message.user {
         background-color: #2b313e;
-        color: white;
     }
     .chat-message.assistant {
-        background-color: #f0f2f6;
+        background-color: #1a1a1a;
     }
     .chat-message .content {
         display: flex;
-        flex-direction: column;
-    }
-    .chat-message .source {
-        font-size: 0.8rem;
-        color: #666;
         margin-top: 0.5rem;
+    }
+    .chat-message .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 1rem;
+    }
+    .chat-message .message {
+        flex: 1;
+    }
+    .source-link {
+        color: #00ff00;
+        text-decoration: none;
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+    }
+    .source-link:hover {
+        text-decoration: underline;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'db_manager' not in st.session_state:
-    st.session_state.db_manager = VectorDBManager()
-    st.session_state.response_generator = ResponseGenerator()
-    st.session_state.chat_history = ChatHistory()
-    st.session_state.suggestion_engine = SuggestionEngine()
+# Initialize components
+@st.cache_resource
+def initialize_components():
+    try:
+        # Initialize vector database manager
+        db_manager = VectorDBManager()
+        
+        # Try to load existing vector database
+        if os.path.exists('vector_db'):
+            db_manager.load('vector_db')
+        else:
+            # If no existing database, create and index documents
+            st.warning("Vector database not found. Creating new database...")
+            
+            # Create collections
+            db_manager.create_collection("patent_faqs")
+            db_manager.create_collection("bis_faqs")
+            
+            # Load and index documents
+            patent_pdf = os.path.join('data', 'Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf')
+            bis_pdf = os.path.join('data', 'FINAL_FAQs_June_2018.pdf')
+            
+            if os.path.exists(patent_pdf):
+                patent_docs = db_manager.load_pdf(patent_pdf)
+                db_manager.index_document("patent_faqs", patent_docs, {"source": patent_pdf})
+            else:
+                st.error(f"Patent FAQ PDF not found at {patent_pdf}")
+            
+            if os.path.exists(bis_pdf):
+                bis_docs = db_manager.load_pdf(bis_pdf)
+                db_manager.index_document("bis_faqs", bis_docs, {"source": bis_pdf})
+            else:
+                st.error(f"BIS FAQ PDF not found at {bis_pdf}")
+            
+            # Save the vector database
+            db_manager.save('vector_db')
+        
+        # Initialize other components
+        response_generator = ResponseGenerator(db_manager)
+        suggestion_engine = SuggestionEngine()
+        
+        return db_manager, response_generator, suggestion_engine
     
-    # Create Collections
-    st.session_state.patent_collection = st.session_state.db_manager.create_collection("patent_faqs")
-    st.session_state.bis_collection = st.session_state.db_manager.create_collection("bis_faqs")
-    
-    # Define file paths
-    PATENT_FAQ_PATH = os.path.join("data", "Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf")
-    BIS_FAQ_PATH = os.path.join("data", "FINAL_FAQs_June_2018.pdf")
-    
-    # Load and index documents
-    with st.spinner("Loading Patent FAQs..."):
-        patent_text = load_pdf(PATENT_FAQ_PATH)
-        st.session_state.db_manager.index_document(
-            "patent_faqs",
-            patent_text,
-            {"source": PATENT_FAQ_PATH}
-        )
-    
-    with st.spinner("Loading BIS FAQs..."):
-        bis_text = load_pdf(BIS_FAQ_PATH)
-        st.session_state.db_manager.index_document(
-            "bis_faqs",
-            bis_text,
-            {"source": BIS_FAQ_PATH}
-        )
-    
-    # Save the vector database
-    st.session_state.db_manager.save()
+    except Exception as e:
+        st.error(f"Error initializing components: {str(e)}")
+        return None, None, None
 
-# Header
-st.title("🤖 Patent & BIS FAQ Assistant")
+# Initialize components
+db_manager, response_generator, suggestion_engine = initialize_components()
+
+if db_manager is None or response_generator is None or suggestion_engine is None:
+    st.error("Failed to initialize the application. Please check the error messages above.")
+    st.stop()
+
+# Title
+st.title("Patent & BIS FAQ Assistant 🤖")
+
+# Description
 st.markdown("""
-    Ask questions about Patents and BIS (Bureau of Indian Standards) regulations. 
-    The assistant will provide accurate answers based on official documentation.
+    This AI assistant can help you with questions about:
+    - Patent-related queries
+    - Bureau of Indian Standards (BIS) related queries
+    
+    Simply type your question below and get instant answers with source references!
 """)
 
-# Sidebar
-with st.sidebar:
-    st.header("About")
-    st.markdown("""
-        This assistant can help you with:
-        - Patent application process
-        - BIS certification requirements
-        - Patent fees and timelines
-        - BIS standards and compliance
-    """)
-    
-    st.header("Example Questions")
-    st.markdown("""
-        - What is the process of applying for a patent?
-        - How long does it take to get a patent granted?
-        - What is the validity period of a BIS certificate?
-        - How can I get BIS certification for my product?
-    """)
+# Chat input
+user_input = st.chat_input("Ask your question here...")
 
-# Chat interface
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Display chat messages
-for message in st.session_state.messages:
+# Display chat history
+for message in st.session_state.chat_history.get_history():
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        if "source" in message:
+            st.markdown(f'<a href="{message["source"]}" target="_blank" class="source-link">Source: {message["source"]}</a>', 
+                       unsafe_allow_html=True)
 
-# Chat input
-if prompt := st.chat_input("Ask your question here..."):
-    # Add user message to chat history
-    st.session_state.messages.append({"role": "user", "content": prompt})
+# Process user input
+if user_input:
+    # Add user message to chat
+    st.session_state.chat_history.add_message("user", user_input)
+    
+    # Display user message
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(user_input)
     
-    # Determine which collection to query
-    query = prompt.lower()
-    patent_keywords = ['patent', 'intellectual property', 'ip', 'invention', 'patent application']
-    bis_keywords = ['bis', 'bureau of indian standards', 'standard', 'certification', 'quality']
-    
-    patent_score = sum(1 for keyword in patent_keywords if keyword in query)
-    bis_score = sum(1 for keyword in bis_keywords if keyword in query)
-    
-    # Get response
-    with st.spinner("Thinking..."):
-        if patent_score > bis_score:
-            results = st.session_state.db_manager.query(st.session_state.patent_collection, prompt)
-        elif bis_score > patent_score:
-            results = st.session_state.db_manager.query(st.session_state.bis_collection, prompt)
-        else:
-            patent_results = st.session_state.db_manager.query(st.session_state.patent_collection, prompt)
-            bis_results = st.session_state.db_manager.query(st.session_state.bis_collection, prompt)
-            results = patent_results + bis_results
-        
-        context = ""
-        sources = set()
-        for result in results:
-            context += f"{result['text']}\n\n"
-            sources.add(result['metadata'].get("source", ""))
-        
-        response = st.session_state.response_generator.generate(
-            context,
-            prompt,
-            st.session_state.chat_history.get(),
-            list(sources)
-        )
-    
-    # Add assistant response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": response})
+    # Generate response
     with st.chat_message("assistant"):
-        st.markdown(response)
-    
-    # Update chat history
-    st.session_state.chat_history.add("user", prompt)
-    st.session_state.chat_history.add("assistant", response) 
+        with st.spinner("Thinking..."):
+            try:
+                # Get response from the generator
+                response = response_generator.generate_response(user_input)
+                
+                # Display response
+                st.markdown(response["answer"])
+                
+                # Display source if available
+                if response["source"]:
+                    st.markdown(f'<a href="{response["source"]}" target="_blank" class="source-link">Source: {response["source"]}</a>', 
+                               unsafe_allow_html=True)
+                
+                # Add assistant message to chat history
+                st.session_state.chat_history.add_message("assistant", response["answer"], response["source"])
+                
+                # Generate and display suggestions
+                suggestions = suggestion_engine.generate_suggestions(user_input, response["answer"])
+                if suggestions:
+                    st.markdown("---")
+                    st.markdown("**You might also want to know:**")
+                    for suggestion in suggestions:
+                        if st.button(suggestion, key=suggestion):
+                            st.session_state.chat_history.add_message("user", suggestion)
+                            st.experimental_rerun()
+            
+            except Exception as e:
+                st.error(f"Error generating response: {str(e)}")
+
+# Save chat history
+st.session_state.chat_history.save() 

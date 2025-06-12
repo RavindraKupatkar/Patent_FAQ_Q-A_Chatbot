@@ -36,4 +36,8 @@ ENV/
 
 # Project specific
 vector_db/
-*.log 
+*.log
+
+# Data files
+data/*.pdf
+data/processed/ 
