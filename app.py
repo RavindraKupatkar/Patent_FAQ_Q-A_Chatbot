@@ -5,9 +5,28 @@ from utils.db_manager import VectorDBManager
 from services.response_generator import ResponseGenerator
 from services.suggestion_engine import SuggestionEngine
 from utils.chat_history import ChatHistory
+from utils.embedder import get_embedder
 
 # Load environment variables
 load_dotenv()
+
+# Validate required environment variables
+required_env_vars = [
+    'GROQ_API_KEY',
+    'PINECONE_API_KEY', 
+    'PINECONE_ENV',
+    'PINECONE_INDEX_NAME'
+]
+
+missing_vars = []
+for var in required_env_vars:
+    if not (st.secrets.get(var) or os.getenv(var)):
+        missing_vars.append(var)
+
+if missing_vars:
+    st.error(f"Missing required environment variables: {', '.join(missing_vars)}")
+    st.info("Please check your .env file or Streamlit secrets configuration.")
+    st.stop()
 
 # Page config with custom theme
 st.set_page_config(
@@ -23,6 +42,10 @@ if 'initialized' not in st.session_state:
     st.session_state.chat_history = ChatHistory()
     st.session_state.chat_history.clear()
     st.session_state.selected_question = None
+    st.session_state.db_manager = None
+    st.session_state.response_generator = None
+    st.session_state.suggestion_engine = None
+    st.session_state.embedder = None
 
 # Custom CSS for modern and clean look
 st.markdown("""
@@ -169,59 +192,97 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize components
-@st.cache_resource
+# Initialize components using session state (Pinecone & embedder once)
 def initialize_components():
-    try:
-        # Initialize vector database manager
-        db_manager = VectorDBManager()
-        
-        # Try to load existing vector database
-        if os.path.exists('vector_db'):
-            db_manager.load('vector_db')
-        else:
-            # If no existing database, create and index documents
-            st.warning("Vector database not found. Creating new database...")
-            
-            # Create collections
-            db_manager.create_collection("patent_faqs")
-            db_manager.create_collection("bis_faqs")
-            
-            # Load and index documents
-            patent_pdf = os.path.join('data', 'Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf')
-            bis_pdf = os.path.join('data', 'FINAL_FAQs_June_2018.pdf')
-            
-            if os.path.exists(patent_pdf):
-                patent_docs = db_manager.load_pdf(patent_pdf)
-                db_manager.index_document("patent_faqs", patent_docs, {"source": patent_pdf})
-            else:
-                st.error(f"Patent FAQ PDF not found at {patent_pdf}")
-            
-            if os.path.exists(bis_pdf):
-                bis_docs = db_manager.load_pdf(bis_pdf)
-                db_manager.index_document("bis_faqs", bis_docs, {"source": bis_pdf})
-            else:
-                st.error(f"BIS FAQ PDF not found at {bis_pdf}")
-            
-            # Save the vector database
-            db_manager.save('vector_db')
-        
-        # Initialize other components
-        response_generator = ResponseGenerator(db_manager)
-        suggestion_engine = SuggestionEngine()
-        
-        return db_manager, response_generator, suggestion_engine
+    """Initialize components once and store in session state."""
+    if st.session_state.db_manager is None:
+        try:
+            with st.spinner("Initializing Pinecone vector database..."):
+                st.session_state.db_manager = VectorDBManager()
+                
+                # Check if we need to index documents
+                # With Pinecone, we check if the index has any vectors
+                # For simplicity, we'll check if data exists in both collections
+                if not _check_pinecone_data():
+                    st.info("Setting up document index for the first time...")
+                    _index_documents(st.session_state.db_manager)
+                    
+        except Exception as e:
+            st.error(f"Error initializing Pinecone: {str(e)}")
+            st.stop()
     
+    if st.session_state.embedder is None:
+        try:
+            with st.spinner("Initializing embedder..."):
+                st.session_state.embedder = get_embedder()
+                provider_info = st.session_state.embedder.get_provider_info()
+                st.success(f"✓ Embedder initialized: {provider_info['provider']} ({provider_info['model']})")
+        except Exception as e:
+            st.error(f"Error initializing embedder: {str(e)}")
+            st.stop()
+    
+    if st.session_state.response_generator is None:
+        st.session_state.response_generator = ResponseGenerator(st.session_state.db_manager)
+        
+    if st.session_state.suggestion_engine is None:
+        st.session_state.suggestion_engine = SuggestionEngine()
+
+def _check_pinecone_data():
+    """Check if Pinecone index has data in both collections."""
+    try:
+        # Try to query both namespaces to see if they have data
+        patent_results = st.session_state.db_manager.search("patent_faqs", "test", limit=1)
+        bis_results = st.session_state.db_manager.search("bis_faqs", "test", limit=1)
+        return len(patent_results) > 0 and len(bis_results) > 0
+    except:
+        return False
+
+def _index_documents(db_manager):
+    """Index PDF documents into Pinecone collections."""
+    try:
+        # Create collections
+        db_manager.create_collection("patent_faqs")
+        db_manager.create_collection("bis_faqs")
+        
+        # Load and index documents
+        patent_pdf = os.path.join('data', 'Final_FREQUENTLY_ASKED_QUESTIONS_-PATENT.pdf')
+        bis_pdf = os.path.join('data', 'FINAL_FAQs_June_2018.pdf')
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        if os.path.exists(patent_pdf):
+            status_text.text("Loading Patent FAQ document...")
+            progress_bar.progress(25)
+            patent_docs = db_manager.load_pdf(patent_pdf)
+            
+            status_text.text("Indexing Patent FAQ embeddings...")
+            progress_bar.progress(50)
+            db_manager.index_document("patent_faqs", patent_docs, {"source": patent_pdf})
+        else:
+            st.error(f"Patent FAQ PDF not found at {patent_pdf}")
+        
+        if os.path.exists(bis_pdf):
+            status_text.text("Loading BIS FAQ document...")
+            progress_bar.progress(75)
+            bis_docs = db_manager.load_pdf(bis_pdf)
+            
+            status_text.text("Indexing BIS FAQ embeddings...")
+            progress_bar.progress(100)
+            db_manager.index_document("bis_faqs", bis_docs, {"source": bis_pdf})
+        else:
+            st.error(f"BIS FAQ PDF not found at {bis_pdf}")
+        
+        status_text.text("✓ Documents indexed successfully!")
+        progress_bar.empty()
+        status_text.empty()
+        
     except Exception as e:
-        st.error(f"Error initializing components: {str(e)}")
-        return None, None, None
+        st.error(f"Error indexing documents: {str(e)}")
+        raise
 
 # Initialize components
-db_manager, response_generator, suggestion_engine = initialize_components()
-
-if db_manager is None or response_generator is None or suggestion_engine is None:
-    st.error("Failed to initialize the application. Please check the error messages above.")
-    st.stop()
+initialize_components()
 
 # Sidebar
 with st.sidebar:
@@ -302,8 +363,8 @@ if current_question:
     # Generate response
     with st.spinner("Thinking..."):
         try:
-            # Get response from the generator
-            response = response_generator.generate_response(current_question)
+            # Get response from the session state generator
+            response = st.session_state.response_generator.generate_response(current_question)
             
             if response and response["answer"]:
                 # Add assistant response to chat history
