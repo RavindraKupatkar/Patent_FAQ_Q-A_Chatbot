@@ -9,58 +9,162 @@ from utils.chat_history import ChatHistory
 # Load environment variables
 load_dotenv()
 
-# Initialize session state
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = ChatHistory()
-
-# Page config
+# Page config with custom theme
 st.set_page_config(
     page_title="Patent & BIS FAQ Assistant",
     page_icon="🤖",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Initialize session state for fresh start
+if 'initialized' not in st.session_state:
+    st.session_state.initialized = True
+    st.session_state.chat_history = ChatHistory()
+    st.session_state.chat_history.clear()
+    st.session_state.selected_question = None
+
+# Custom CSS for modern and clean look
 st.markdown("""
     <style>
+    /* Main container */
     .stApp {
         max-width: 1200px;
         margin: 0 auto;
+        background-color: #0E1117;
     }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #1E1E1E;
+    }
+    
+    .sidebar-header {
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin-bottom: 2rem;
+        color: #00FF9D;
+        text-align: center;
+        padding: 1rem;
+        border-bottom: 2px solid #00FF9D;
+    }
+    
+    /* Chat message styling */
     .chat-message {
         padding: 1.5rem;
-        border-radius: 0.5rem;
+        border-radius: 1rem;
         margin-bottom: 1rem;
         display: flex;
         flex-direction: column;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
+    
     .chat-message.user {
-        background-color: #2b313e;
+        background-color: #2B313E;
+        border-left: 4px solid #00FF9D;
     }
+    
     .chat-message.assistant {
-        background-color: #1a1a1a;
+        background-color: #1E1E1E;
+        border-left: 4px solid #FF4B4B;
     }
+    
     .chat-message .content {
         display: flex;
         margin-top: 0.5rem;
     }
+    
     .chat-message .avatar {
         width: 40px;
         height: 40px;
         border-radius: 50%;
         margin-right: 1rem;
     }
+    
     .chat-message .message {
         flex: 1;
+        font-size: 1.1rem;
+        line-height: 1.5;
     }
+    
+    /* Source link styling */
     .source-link {
-        color: #00ff00;
+        color: #00FF9D;
         text-decoration: none;
-        font-size: 0.8rem;
-        margin-top: 0.5rem;
+        font-size: 0.9rem;
+        margin-top: 0.8rem;
+        padding: 0.5rem;
+        background-color: rgba(0, 255, 157, 0.1);
+        border-radius: 0.5rem;
+        display: inline-block;
     }
+    
     .source-link:hover {
-        text-decoration: underline;
+        background-color: rgba(0, 255, 157, 0.2);
+    }
+    
+    /* Suggested questions styling */
+    .suggested-question {
+        padding: 1rem;
+        margin: 0.8rem 0;
+        border-radius: 0.8rem;
+        background-color: #2B313E;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid #3B414E;
+    }
+    
+    .suggested-question:hover {
+        background-color: #3B414E;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Button styling */
+    .stButton button {
+        width: 100%;
+        border-radius: 0.8rem;
+        padding: 0.8rem;
+        font-size: 1rem;
+        background-color: #2B313E;
+        color: white;
+        border: 1px solid #3B414E;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton button:hover {
+        background-color: #3B414E;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Clear chat button */
+    .clear-chat {
+        background-color: #FF4B4B !important;
+        color: white !important;
+        margin-top: 2rem;
+    }
+    
+    .clear-chat:hover {
+        background-color: #FF6B6B !important;
+    }
+    
+    /* Section headers */
+    .section-header {
+        color: #00FF9D;
+        font-size: 1.4rem;
+        margin: 1.5rem 0 1rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #3B414E;
+    }
+    
+    /* Welcome message */
+    .welcome-message {
+        background-color: #2B313E;
+        padding: 1.5rem;
+        border-radius: 1rem;
+        margin-bottom: 2rem;
+        border: 1px solid #3B414E;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -119,68 +223,124 @@ if db_manager is None or response_generator is None or suggestion_engine is None
     st.error("Failed to initialize the application. Please check the error messages above.")
     st.stop()
 
-# Title
-st.title("Patent & BIS FAQ Assistant 🤖")
-
-# Description
-st.markdown("""
-    This AI assistant can help you with questions about:
+# Sidebar
+with st.sidebar:
+    st.markdown('<div class="sidebar-header">Patent & BIS FAQ Assistant</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="welcome-message">
+    👋 Welcome to the Patent & BIS FAQ Assistant!
+    
+    This AI-powered assistant can help you with questions about:
     - Patent-related queries
     - Bureau of Indian Standards (BIS) related queries
     
-    Simply type your question below and get instant answers with source references!
-""")
-
-# Chat input
-user_input = st.chat_input("Ask your question here...")
-
-# Display chat history
-for message in st.session_state.chat_history.get_history():
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-        if "source" in message:
-            st.markdown(f'<a href="{message["source"]}" target="_blank" class="source-link">Source: {message["source"]}</a>', 
-                       unsafe_allow_html=True)
-
-# Process user input
-if user_input:
-    # Add user message to chat
-    st.session_state.chat_history.add_message("user", user_input)
+    Simply type your question or click on a suggested question below to get started!
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Display user message
-    with st.chat_message("user"):
-        st.markdown(user_input)
+    st.markdown('<div class="section-header">Suggested Questions</div>', unsafe_allow_html=True)
+    
+    # Patent-related questions
+    st.markdown('<div class="section-header">Patent Questions</div>', unsafe_allow_html=True)
+    patent_questions = [
+        "What is a patent?",
+        "How do I apply for a patent?",
+        "What is the duration of a patent?",
+        "What are the requirements for patentability?",
+        "What is the patent application process?",
+        "How much does it cost to file a patent?"
+    ]
+    
+    # Store selected question in session state
+    if 'selected_question' not in st.session_state:
+        st.session_state.selected_question = None
+    
+    for question in patent_questions:
+        if st.button(question, key=f"patent_{question}"):
+            st.session_state.selected_question = question
+            st.session_state.chat_history.add_message("user", question)
+            st.rerun()
+    
+    # BIS-related questions
+    st.markdown('<div class="section-header">BIS Questions</div>', unsafe_allow_html=True)
+    bis_questions = [
+        "What is BIS certification?",
+        "How do I get BIS certification?",
+        "What are BIS standards?",
+        "What products require BIS certification?",
+        "What is the BIS certification process?",
+        "How long does BIS certification take?"
+    ]
+    
+    for question in bis_questions:
+        if st.button(question, key=f"bis_{question}"):
+            st.session_state.selected_question = question
+            st.session_state.chat_history.add_message("user", question)
+            st.rerun()
+    
+    # Clear chat history button
+    if st.button("Clear Chat History", key="clear_chat"):
+        st.session_state.chat_history.clear()
+        st.session_state.selected_question = None
+        st.rerun()
+
+# Main content area
+st.title("💬 Chat with Patent & BIS Assistant")
+
+# Chat input with custom styling
+user_input = st.chat_input("Type your question here...", key="chat_input")
+
+# Process user input (either from chat or sidebar)
+current_question = user_input if user_input else st.session_state.selected_question
+
+# Process new question if any
+if current_question:
+    # Add user question to chat history
+    st.session_state.chat_history.add_message("user", current_question)
     
     # Generate response
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            try:
-                # Get response from the generator
-                response = response_generator.generate_response(user_input)
-                
-                # Display response
-                st.markdown(response["answer"])
-                
-                # Display source if available
-                if response["source"]:
-                    st.markdown(f'<a href="{response["source"]}" target="_blank" class="source-link">Source: {response["source"]}</a>', 
-                               unsafe_allow_html=True)
-                
-                # Add assistant message to chat history
-                st.session_state.chat_history.add_message("assistant", response["answer"], response["source"])
-                
-                # Generate and display suggestions
-                suggestions = suggestion_engine.generate_suggestions(user_input, response["answer"])
-                if suggestions:
-                    st.markdown("---")
-                    st.markdown("**You might also want to know:**")
-                    for suggestion in suggestions:
-                        if st.button(suggestion, key=suggestion):
-                            st.session_state.chat_history.add_message("user", suggestion)
-                            st.experimental_rerun()
+    with st.spinner("Thinking..."):
+        try:
+            # Get response from the generator
+            response = response_generator.generate_response(current_question)
             
-            except Exception as e:
-                st.error(f"Error generating response: {str(e)}")
+            if response and response["answer"]:
+                # Add assistant response to chat history
+                st.session_state.chat_history.add_message("assistant", response["answer"], response["source"])
+            else:
+                # Add no answer message to chat history
+                no_answer_msg = "Sorry, I don't have an answer for that. Here are some related questions you might want to ask:"
+                st.session_state.chat_history.add_message("assistant", no_answer_msg)
+        
+        except Exception as e:
+            error_msg = f"Error generating response: {str(e)}"
+            st.session_state.chat_history.add_message("assistant", error_msg)
+    
+    # Clear the selected question after processing
+    st.session_state.selected_question = None
+
+# Display chat history in clean Q&A format
+chat_history = st.session_state.chat_history.get_history()
+for i in range(0, len(chat_history), 2):
+    if i + 1 < len(chat_history):
+        # Display question
+        with st.chat_message("user"):
+            st.markdown(f"**{chat_history[i]['content']}**")
+        
+        # Display answer
+        with st.chat_message("assistant"):
+            st.markdown(chat_history[i + 1]['content'])
+            if "source" in chat_history[i + 1] and chat_history[i + 1]["source"]:
+                source_text = chat_history[i + 1]["source"]
+                if source_text.startswith("file:///"):
+                    source_text = source_text.replace("file:///", "")
+                st.markdown(f'<a href="{chat_history[i + 1]["source"]}" target="_blank" class="source-link">📄 Source Document</a>', 
+                           unsafe_allow_html=True)
+    else:
+        # Handle case where there's only a question without an answer
+        with st.chat_message("user"):
+            st.markdown(f"**{chat_history[i]['content']}**")
 
 # Save chat history
 st.session_state.chat_history.save() 

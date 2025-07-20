@@ -1,51 +1,57 @@
-from openai import OpenAI
+import openai
+from dotenv import load_dotenv
+import os
+import streamlit as st
+
+load_dotenv()
 
 class ResponseGenerator:
-    def __init__(self):
-        self.client = OpenAI()
-        self.system_prompt = """ 
-        You are a patent and BIS regulations FAQ assistant. 
-        Strictly use only the provided context to answer questions.
-        If answer is not available in the context, respond with: "I don't have information about this. Here are some related questions:"
-        If you have a valid answer from the context, provide it without mentioning suggested questions.
-        Think step-by-step:
-        step 1: Firstly understand the question.
-        step 2: Now you need to find-out key-words from the questions.
-        step 3: Now you need to search those key-words throughout the provided context.
-        step 4: If no answer is found, you need to find-out 3 - 4 related questions from the context.
-        step 5: Return the answer or suggested questions based on whether an answer was found.
-
-        Format your response as follows:
-        1. If you have an answer:
-           - Provide the answer
-           - At the end, add "Source: [source URL]" (only for sources that provided the answer)
-        
-        2. If no answer is found:
-           - Say "I don't have information about this. Here are some related questions:"
-           - List the related questions
-           - Do not include source URLs
-        """
-
-    def generate(self, context, query, history, sources):
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            *history,
-            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
-        ]
-
-        response = self.client.chat.completions.create(
-            model="gpt-4",
-            messages=messages,
-            temperature=0.2
-        )
-
-        # Get the response content
-        response_content = response.choices[0].message.content
-
-        # Only append sources if the response doesn't indicate "no information"
-        if "I don't have information about this" not in response_content and sources:
-            # Format sources as a single line
-            source_str = ", ".join(sources)
-            return f"{response_content}\n\nSource: {source_str}"
-        
-        return response_content
+    def __init__(self, db_manager):
+        self.db_manager = db_manager
+        # Try Streamlit secrets first, then environment variables
+        api_key = st.secrets.get("OPENAI_API_KEY", os.getenv('OPENAI_API_KEY'))
+        self.client = openai.OpenAI(api_key=api_key)
+    
+    def generate_response(self, query):
+        """Generate a response based on the user's query."""
+        try:
+            # Search for relevant documents
+            patent_results = self.db_manager.search("patent_faqs", query, limit=2)
+            bis_results = self.db_manager.search("bis_faqs", query, limit=2)
+            
+            # Combine and format the context
+            context = ""
+            if patent_results:
+                context += "Patent Information:\n" + "\n".join([doc.page_content for doc in patent_results]) + "\n\n"
+            if bis_results:
+                context += "BIS Information:\n" + "\n".join([doc.page_content for doc in bis_results])
+            
+            # Generate response using OpenAI
+            response = self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that provides information about patents and BIS standards. Use the provided context to answer questions accurately."},
+                    {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
+                ],
+                temperature=0.7,
+                max_tokens=500
+            )
+            
+            # Get the source document if available
+            source = None
+            if patent_results:
+                source = patent_results[0].metadata.get('source')
+            elif bis_results:
+                source = bis_results[0].metadata.get('source')
+            
+            return {
+                "answer": response.choices[0].message.content.strip(),
+                "source": source
+            }
+            
+        except Exception as e:
+            print(f"Error generating response: {str(e)}")
+            return {
+                "answer": "I apologize, but I encountered an error while processing your request. Please try again.",
+                "source": None
+            }

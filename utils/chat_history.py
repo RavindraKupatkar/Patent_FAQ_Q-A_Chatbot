@@ -10,13 +10,16 @@ class ChatHistory:
         self.history_file = "chat_history.json"
         self._load_history()
 
-    def add(self, role: str, content: str) -> None:
+    def add_message(self, role: str, content: str, source: Optional[str] = None) -> None:
         """Add a message to the chat history."""
         message = {
             "role": role,
             "content": content,
             "timestamp": datetime.now().isoformat()
         }
+        if source:
+            message["source"] = source
+            
         self.history.append(message)
         
         # Keep only the last max_history messages
@@ -25,13 +28,17 @@ class ChatHistory:
         
         self._save_history()
 
-    def get(self) -> List[Dict]:
+    def get_history(self) -> List[Dict]:
         """Get the current chat history."""
         return self.history
 
     def clear(self) -> None:
         """Clear the chat history."""
         self.history = []
+        self._save_history()
+
+    def save(self) -> None:
+        """Save the current chat history."""
         self._save_history()
 
     def _save_history(self) -> None:
